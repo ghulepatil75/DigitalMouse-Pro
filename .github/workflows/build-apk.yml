@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build:
+    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -23,15 +24,48 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Find Gradle project
+        shell: bash
+        run: |
+          echo "Repository contents:"
+          find . -maxdepth 4 -type f \
+            \( -name "gradlew" -o -name "settings.gradle" -o -name "settings.gradle.kts" \) \
+            -print
+
+          GRADLEW_PATH=$(find . -type f -name "gradlew" -print -quit)
+
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "ERROR: gradlew was not found."
+            echo "Your Android project must contain a Gradle wrapper."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW_PATH")
+          PROJECT_DIR=$(cd "$PROJECT_DIR" && pwd)
+
+          echo "Gradle wrapper found at:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
       - name: Make Gradle executable
-        run: chmod +x gradlew
+        run: chmod +x "$PROJECT_DIR/gradlew"
+
+      - name: Check Gradle
+        run: "$PROJECT_DIR/gradlew" --version
 
       - name: Build Debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain
+
+      - name: Find APK
+        run: |
+          echo "Generated APK files:"
+          find "$PROJECT_DIR" -type f -name "*.apk" -print
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: DigitalMouse-Pro-debug
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          path: "**/app/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error          if-no-files-found: error
