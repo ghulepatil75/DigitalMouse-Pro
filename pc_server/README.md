@@ -1,5 +1,13 @@
-# Windows Wi-Fi server
-Install Python 3, then:
+# Windows PC server
+
+Install Python 3.
+
+Run:
 `python -m pip install -r requirements.txt`
+
+Then:
 `python digital_mouse_server.py`
-Use `ipconfig` and enter the PC IPv4 in the phone app. Keep both devices on the same Wi-Fi. Allow Python through Windows Private Network firewall when asked. Never port-forward 8765 to the internet.
+
+Find your PC IPv4 address with `ipconfig` and enter it in the Android app. Keep phone and PC on the same trusted Wi-Fi/LAN.
+
+Do not expose TCP port 8765 to the public internet.
