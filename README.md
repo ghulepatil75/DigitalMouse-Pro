@@ -1,5 +1,9 @@
 # 🖱️ Digital Mouse Pro v2
-
+[![Build APK](https://github.com/ghulepatil75/DigitalMouse-Pro/actions/workflows/build-apk.yml/badge.svg)](https://github.com/ghulepatil75/DigitalMouse-Pro/actions/workflows/build-apk.yml)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Android-purple?logo=kotlin)](https://kotlinlang.org/)
+[![Android](https://img.shields.io/badge/Android-9%2B-green?logo=android)](https://developer.android.com/)
+[![Bluetooth HID](https://img.shields.io/badge/Bluetooth-HID-blue?logo=bluetooth)](https://developer.android.com/)
+[![License](https://img.shields.io/badge/License-Open%20Source-lightgrey)](LICENSE)
 Turn your Android phone into a wireless mouse and keyboard.
 
 ## ✨ Features
