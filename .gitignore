@@ -1,9 +1,36 @@
-*.iml
+# Gradle
 .gradle/
-local.properties
-.idea/
+.kotlin/
 build/
 */build/
-captures/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Android build files
 .externalNativeBuild/
 .cxx/
+captures/
+
+# Generated APKs
+*.apk
+*.aab
+
+# Signing / secrets
+*.jks
+*.keystore
+keystore.properties
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log

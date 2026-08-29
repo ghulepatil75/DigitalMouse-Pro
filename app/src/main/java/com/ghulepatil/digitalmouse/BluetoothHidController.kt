@@ -11,98 +11,218 @@ import android.os.Build
 import java.util.concurrent.Executors
 
 class BluetoothHidController(private val context: Context) {
-    private val adapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
+
+    private val adapter: BluetoothAdapter? =
+        BluetoothAdapter.getDefaultAdapter()
+
     private var hid: BluetoothHidDevice? = null
     private var host: BluetoothDevice? = null
-    private val callbackExecutor = Executors.newSingleThreadExecutor()
+
+    private val executor = Executors.newSingleThreadExecutor()
 
     private val callback = object : BluetoothHidDevice.Callback() {
-        override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
+
+        override fun onAppStatusChanged(
+            pluggedDevice: BluetoothDevice?,
+            registered: Boolean
+        ) {
             if (!registered) host = null
         }
 
-        override fun onConnectionStateChanged(device: BluetoothDevice, state: Int) {
-            if (state == BluetoothProfile.STATE_CONNECTED) host = device
-            if (state == BluetoothProfile.STATE_DISCONNECTED && host == device) host = null
+        override fun onConnectionStateChanged(
+            device: BluetoothDevice,
+            state: Int
+        ) {
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                host = device
+            } else if (
+                state == BluetoothProfile.STATE_DISCONNECTED &&
+                host == device
+            ) {
+                host = null
+            }
         }
 
-        override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
-            // No feature/input report needs to be returned for this simple controller.
+        override fun onGetReport(
+            device: BluetoothDevice,
+            type: Byte,
+            id: Byte,
+            bufferSize: Int
+        ) {
         }
 
-        override fun onInterruptData(device: BluetoothDevice, reportId: Byte, data: ByteArray) {}
+        override fun onInterruptData(
+            device: BluetoothDevice,
+            reportId: Byte,
+            data: ByteArray
+        ) {
+        }
 
-        override fun onSetProtocol(device: BluetoothDevice, protocol: Byte) {}
+        override fun onSetProtocol(
+            device: BluetoothDevice,
+            protocol: Byte
+        ) {
+        }
 
-        override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {}
+        override fun onSetReport(
+            device: BluetoothDevice,
+            type: Byte,
+            id: Byte,
+            data: ByteArray
+        ) {
+        }
 
-        override fun onVirtualCableUnplug(device: BluetoothDevice) {
+        override fun onVirtualCableUnplug(
+            device: BluetoothDevice
+        ) {
             if (host == device) host = null
         }
     }
 
     @SuppressLint("MissingPermission")
     fun start(onReady: (Boolean, String) -> Unit) {
+
         if (Build.VERSION.SDK_INT < 28) {
             onReady(false, "Bluetooth HID requires Android 9+")
             return
         }
-        if (adapter == null) {
+
+        val bt = adapter
+
+        if (bt == null) {
             onReady(false, "Bluetooth is not available")
             return
         }
-        try {
-            adapter.getProfileProxy(context, object : BluetoothProfile.ServiceListener {
-                override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-                    hid = proxy as? BluetoothHidDevice
-                    if (hid == null) {
-                        onReady(false, "Bluetooth HID profile unavailable")
-                        return
-                    }
-                    val sdp = BluetoothHidDeviceAppSdpSettings(
-                        "Digital Mouse Pro",
-                        "Wireless Mouse and Keyboard",
-                        "Digital Mouse Pro",
-                        BluetoothHidDevice.SUBCLASS1_COMBO,
-                        REPORT_DESCRIPTOR
-                    )
-                    val registered = hid?.registerApp(
-                        sdp, null, null, callbackExecutor, callback
-                    ) ?: false
-                    onReady(registered, if (registered) "Bluetooth HID ready" else "HID registration failed")
-                }
 
-                override fun onServiceDisconnected(profile: Int) {
-                    hid = null
-                    host = null
-                }
-            }, BluetoothProfile.HID_DEVICE)
-        } catch (e: SecurityException) {
+        try {
+
+            bt.getProfileProxy(
+                context,
+                object : BluetoothProfile.ServiceListener {
+
+                    override fun onServiceConnected(
+                        profile: Int,
+                        proxy: BluetoothProfile
+                    ) {
+
+                        hid = proxy as? BluetoothHidDevice
+
+                        val device = hid
+
+                        if (device == null) {
+                            onReady(
+                                false,
+                                "Bluetooth HID profile unavailable"
+                            )
+                            return
+                        }
+
+                        val sdp = BluetoothHidDeviceAppSdpSettings(
+                            "Digital Mouse Pro",
+                            "Wireless Mouse and Keyboard",
+                            "Digital Mouse Pro",
+                            BluetoothHidDevice.SUBCLASS1_COMBO,
+                            REPORT_DESCRIPTOR
+                        )
+
+                        try {
+
+                            val result = device.registerApp(
+                                sdp,
+                                null,
+                                null,
+                                executor,
+                                callback
+                            )
+
+                            onReady(
+                                result,
+                                if (result)
+                                    "Bluetooth HID ready"
+                                else
+                                    "HID registration failed"
+                            )
+
+                        } catch (_: SecurityException) {
+                            onReady(
+                                false,
+                                "Bluetooth permission required"
+                            )
+                        }
+                    }
+
+                    override fun onServiceDisconnected(
+                        profile: Int
+                    ) {
+                        hid = null
+                        host = null
+                    }
+                },
+                BluetoothProfile.HID_DEVICE
+            )
+
+        } catch (_: SecurityException) {
             onReady(false, "Bluetooth permission required")
+        } catch (e: Exception) {
+            onReady(
+                false,
+                "Bluetooth error: ${e.message ?: "unknown error"}"
+            )
         }
     }
 
     @SuppressLint("MissingPermission")
     fun pairedDevices(): List<BluetoothDevice> {
-        if (adapter == null) return emptyList()
-        return try { adapter.bondedDevices?.toList() ?: emptyList() } catch (_: SecurityException) { emptyList() }
+
+        val bt = adapter ?: return emptyList()
+
+        return try {
+            bt.bondedDevices?.toList() ?: emptyList()
+        } catch (_: SecurityException) {
+            emptyList()
+        }
     }
 
     @SuppressLint("MissingPermission")
     fun connect(device: BluetoothDevice): Boolean {
-        return try { hid?.connect(device) ?: false } catch (_: SecurityException) { false }
+
+        val h = hid ?: return false
+
+        return try {
+            h.connect(device)
+        } catch (_: SecurityException) {
+            false
+        } catch (_: Exception) {
+            false
+        }
     }
 
     @SuppressLint("MissingPermission")
-    fun mouse(dx: Int, dy: Int, wheel: Int = 0, buttons: Int = 0) {
+    fun mouse(
+        dx: Int,
+        dy: Int,
+        wheel: Int = 0,
+        buttons: Int = 0
+    ) {
+
         val h = hid ?: return
-        val d = byteArrayOf(
-            buttons.toByte(),
+        val currentHost = host ?: return
+
+        val data = byteArrayOf(
+            buttons.coerceIn(0, 7).toByte(),
             dx.coerceIn(-127, 127).toByte(),
             dy.coerceIn(-127, 127).toByte(),
             wheel.coerceIn(-127, 127).toByte()
         )
-        try { h.sendReport(host, 1, d) } catch (_: SecurityException) {}
+
+        try {
+            h.sendReport(
+                currentHost,
+                1,
+                data
+            )
+        } catch (_: Exception) {
+        }
     }
 
     fun click(button: Int) {
@@ -116,56 +236,146 @@ class BluetoothHidController(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun key(c: Char) {
+
         val key = keyCode(c) ?: return
         val h = hid ?: return
-        val down = byteArrayOf(0, 0, key.toByte(), 0, 0, 0, 0, 0)
+        val currentHost = host ?: return
+
+        val down = byteArrayOf(
+            0,
+            0,
+            key.toByte(),
+            0,
+            0,
+            0,
+            0,
+            0
+        )
+
         val up = ByteArray(8)
+
         try {
-            h.sendReport(host, 2, down)
-            h.sendReport(host, 2, up)
-        } catch (_: SecurityException) {}
+            h.sendReport(currentHost, 2, down)
+            h.sendReport(currentHost, 2, up)
+        } catch (_: Exception) {
+        }
     }
 
-    private fun keyCode(c: Char): Int? = when (c.lowercaseChar()) {
-        in 'a'..'z' -> 4 + (c.lowercaseChar() - 'a')
-        in '1'..'9' -> 30 + (c - '1')
-        '0' -> 39
-        ' ' -> 44
-        '\n' -> 40
-        '\t' -> 43
-        '-' -> 45
-        '=' -> 46
-        '[' -> 47
-        ']' -> 48
-        '\\' -> 49
-        ';' -> 51
-        '\'' -> 52
-        ',' -> 54
-        '.' -> 55
-        '/' -> 56
-        else -> null
+    private fun keyCode(c: Char): Int? {
+
+        return when (c.lowercaseChar()) {
+
+            in 'a'..'z' ->
+                4 + (c.lowercaseChar() - 'a')
+
+            in '1'..'9' ->
+                30 + (c - '1')
+
+            '0' -> 39
+
+            ' ' -> 44
+            '\n' -> 40
+            '\t' -> 43
+
+            '-' -> 45
+            '=' -> 46
+            '[' -> 47
+            ']' -> 48
+            '\\' -> 49
+            ';' -> 51
+            '\'' -> 52
+            ',' -> 54
+            '.' -> 55
+            '/' -> 56
+
+            else -> null
+        }
     }
 
     companion object {
-        // Report ID 1 = mouse, Report ID 2 = keyboard.
+
+        /*
+         * Bluetooth HID Report Descriptor
+         *
+         * Report ID 1 = Mouse
+         * Report ID 2 = Keyboard
+         */
+
         val REPORT_DESCRIPTOR = byteArrayOf(
-            0x05, 0x01, 0x09, 0x02, 0xA1.toByte(), 0x01,
-            0x85.toByte(), 0x01, 0x09, 0x01, 0xA1.toByte(), 0x00,
-            0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 0x15, 0x00, 0x25, 0x01,
-            0x95, 0x03, 0x75, 0x01, 0x81.toByte(), 0x02,
-            0x95, 0x01, 0x75, 0x05, 0x81.toByte(), 0x01,
-            0x05, 0x01, 0x09, 0x30, 0x09, 0x31,
-            0x09, 0x38, 0x15, 0x81.toByte(), 0x25, 0x7F,
-            0x75, 0x08, 0x95, 0x03, 0x81.toByte(), 0x06,
-            0xC0.toByte(), 0xC0.toByte(),
-            0x05, 0x01, 0x09, 0x06, 0xA1.toByte(), 0x01,
-            0x85.toByte(), 0x02,
-            0x05, 0x07, 0x19, 0xE0.toByte(), 0x29, 0xE7.toByte(),
-            0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08,
+
+            // Mouse
+            0x05, 0x01,
+            0x09, 0x02,
+            0xA1.toByte(), 0x01,
+
+            0x85.toByte(), 0x01,
+
+            0x09, 0x01,
+            0xA1.toByte(), 0x00,
+
+            // Buttons
+            0x05, 0x09,
+            0x19, 0x01,
+            0x29, 0x03,
+            0x15, 0x00,
+            0x25, 0x01,
+            0x95.toByte(), 0x03,
+            0x75, 0x01,
             0x81.toByte(), 0x02,
-            0x95, 0x01, 0x75, 0x08, 0x81.toByte(), 0x01,
-            0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65,
-            0x05, 0x07, 0x19, 0x00, 0x29, 0x65, 0x81.toByte(), 0x00,
+
+            // Padding
+            0x95.toByte(), 0x01,
+            0x75, 0x05,
+            0x81.toByte(), 0x01,
+
+            // X Y Wheel
+            0x05, 0x01,
+            0x09, 0x30,
+            0x09, 0x31,
+            0x09, 0x38,
+
+            0x15, 0x81.toByte(),
+            0x25, 0x7F,
+
+            0x75, 0x08,
+            0x95.toByte(), 0x03,
+            0x81.toByte(), 0x06,
+
+            0xC0.toByte(),
+            0xC0.toByte(),
+
+            // Keyboard
+            0x05, 0x01,
+            0x09, 0x06,
+            0xA1.toByte(), 0x01,
+
+            0x85.toByte(), 0x02,
+
+            // Modifier
+            0x05, 0x07,
+            0x19, 0xE0.toByte(),
+            0x29, 0xE7.toByte(),
+            0x15, 0x00,
+            0x25, 0x01,
+            0x75, 0x01,
+            0x95.toByte(), 0x08,
+            0x81.toByte(), 0x02,
+
+            // Reserved
+            0x95.toByte(), 0x01,
+            0x75, 0x08,
+            0x81.toByte(), 0x01,
+
+            // Keys
+            0x95.toByte(), 0x06,
+            0x75, 0x08,
+            0x15, 0x00,
+            0x25, 0x65,
+            0x05, 0x07,
+            0x19, 0x00,
+            0x29, 0x65,
+            0x81.toByte(), 0x00,
+
             0xC0.toByte()
         )
     }
